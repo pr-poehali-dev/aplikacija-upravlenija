@@ -14,7 +14,9 @@ const queryClient = new QueryClient();
 interface User {
   name: string;
   role: string;
+  roleType: "student" | "teacher" | "admin";
   initials: string;
+  className?: string;
 }
 
 const AppInner = () => {

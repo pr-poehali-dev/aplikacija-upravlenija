@@ -116,11 +116,16 @@ const ANNOUNCEMENTS = [
 type Tab = "events" | "schedule" | "announcements";
 
 interface IndexProps {
-  user: { name: string; role: string; initials: string };
+  user: { name: string; role: string; roleType: "student" | "teacher" | "admin"; initials: string; className?: string };
   onLogout: () => void;
 }
 
 export default function Index({ user, onLogout }: IndexProps) {
+  const isStudent = user.roleType === "student";
+  const isTeacher = user.roleType === "teacher";
+  const isAdmin = user.roleType === "admin";
+  const canManage = isTeacher || isAdmin;
+
   const [activeTab, setActiveTab] = useState<Tab>("events");
   const [events, setEvents] = useState(EVENTS);
   const [announcements, setAnnouncements] = useState(ANNOUNCEMENTS);
@@ -130,6 +135,7 @@ export default function Index({ user, onLogout }: IndexProps) {
   const [registeredEvent, setRegisteredEvent] = useState<number | null>(null);
   const [selectedDay, setSelectedDay] = useState(2);
   const [mounted, setMounted] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const unreadCount = announcements.filter((a) => !a.read).length;
 
@@ -283,18 +289,47 @@ export default function Index({ user, onLogout }: IndexProps) {
         {/* Events Tab */}
         {activeTab === "events" && (
           <div>
-            <div className={`mb-5 ${mounted ? "animate-fade-in" : "opacity-0"}`}>
-              <h1 className="text-2xl font-bold mb-1">Мероприятия</h1>
-              <p className="text-app-text-muted text-sm">Ближайшие события в школе</p>
+            {/* Role badge */}
+            <div className={`mb-4 ${mounted ? "animate-fade-in" : "opacity-0"}`}>
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium"
+                style={
+                  isAdmin ? { color: "#FF6B35", backgroundColor: "rgba(255,107,53,0.1)", borderColor: "rgba(255,107,53,0.3)" }
+                  : isTeacher ? { color: "#2ECC8A", backgroundColor: "rgba(46,204,138,0.1)", borderColor: "rgba(46,204,138,0.3)" }
+                  : { color: "#9B7FFF", backgroundColor: "rgba(124,92,252,0.1)", borderColor: "rgba(124,92,252,0.3)" }
+                }>
+                <span>{isAdmin ? "⚙️" : isTeacher ? "📚" : "🎒"}</span>
+                <span>{isAdmin ? "Режим администратора" : isTeacher ? "Режим учителя" : `Ученик${user.className ? ` · ${user.className}` : ""}`}</span>
+              </div>
+            </div>
+
+            <div className={`flex items-start justify-between mb-5 ${mounted ? "animate-fade-in" : "opacity-0"}`}>
+              <div>
+                <h1 className="text-2xl font-bold mb-1">Мероприятия</h1>
+                <p className="text-app-text-muted text-sm">Ближайшие события в школе</p>
+              </div>
+              {canManage && (
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="flex items-center gap-1.5 gradient-violet text-white text-xs font-semibold px-3 py-2.5 rounded-2xl hover:opacity-90 transition-opacity flex-shrink-0"
+                  style={{ boxShadow: "0 4px 15px rgba(124,92,252,0.35)" }}
+                >
+                  <Icon name="Plus" size={14} />
+                  <span>Создать</span>
+                </button>
+              )}
             </div>
 
             {/* Stats row */}
             <div className={`grid grid-cols-3 gap-3 mb-5 ${mounted ? "animate-fade-in stagger-1" : "opacity-0"}`}>
-              {[
+              {(canManage ? [
+                { label: "Всего событий", value: events.length, color: "#7C5CFC" },
+                { label: "Участников", value: events.reduce((s, e) => s + e.participants, 0), color: "#2ECC8A" },
+                { label: "Свободно мест", value: events.reduce((s, e) => s + (e.maxParticipants - e.participants), 0), color: "#FF6B35" },
+              ] : [
                 { label: "Записан", value: events.filter((e) => e.registered).length, color: "#7C5CFC" },
                 { label: "Открыто", value: events.length, color: "#2ECC8A" },
                 { label: "Мест осталось", value: events.reduce((s, e) => s + (e.maxParticipants - e.participants), 0), color: "#FF6B35" },
-              ].map((stat) => (
+              ]).map((stat) => (
                 <div key={stat.label} className="bg-app-card border border-app-border rounded-2xl p-3 text-center">
                   <div className="text-xl font-bold" style={{ color: stat.color }}>{stat.value}</div>
                   <div className="text-[11px] text-app-text-muted mt-0.5">{stat.label}</div>
@@ -361,24 +396,36 @@ export default function Index({ user, onLogout }: IndexProps) {
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => handleRegister(event.id)}
-                      className={`w-full py-2.5 rounded-2xl text-sm font-semibold transition-all duration-200 ${
-                        registeredEvent === event.id ? "scale-95" : ""
-                      } ${
-                        event.registered
-                          ? "bg-app-surface text-app-text-muted border border-app-border hover:border-red-500/50 hover:text-red-400"
-                          : `${event.color} text-white hover:opacity-90`
-                      }`}
-                    >
-                      {registeredEvent === event.id
-                        ? event.registered
-                          ? "✓ Вы записаны!"
-                          : "Запись отменена"
-                        : event.registered
-                        ? "Отменить запись"
-                        : "Записаться"}
-                    </button>
+                    {canManage ? (
+                      <div className="flex gap-2">
+                        <button className="flex-1 py-2.5 rounded-2xl text-sm font-semibold bg-app-surface border border-app-border text-app-text-muted hover:border-app-violet/40 transition-all flex items-center justify-center gap-1.5">
+                          <Icon name="Pencil" size={13} />
+                          Редактировать
+                        </button>
+                        <button className="w-10 h-10 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center hover:bg-red-500/20 transition-colors flex-shrink-0">
+                          <Icon name="Trash2" size={14} className="text-red-400" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleRegister(event.id)}
+                        className={`w-full py-2.5 rounded-2xl text-sm font-semibold transition-all duration-200 ${
+                          registeredEvent === event.id ? "scale-95" : ""
+                        } ${
+                          event.registered
+                            ? "bg-app-surface text-app-text-muted border border-app-border hover:border-red-500/50 hover:text-red-400"
+                            : `${event.color} text-white hover:opacity-90`
+                        }`}
+                      >
+                        {registeredEvent === event.id
+                          ? event.registered
+                            ? "✓ Вы записаны!"
+                            : "Запись отменена"
+                          : event.registered
+                          ? "Отменить запись"
+                          : "Записаться"}
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -510,15 +557,26 @@ export default function Index({ user, onLogout }: IndexProps) {
                   {unreadCount > 0 ? `${unreadCount} непрочитанных` : "Всё прочитано"}
                 </p>
               </div>
-              {unreadCount > 0 && (
-                <button
-                  onClick={() => setAnnouncements((prev) => prev.map((a) => ({ ...a, read: true })))}
-                  className="text-xs font-medium px-3 py-1.5 rounded-xl transition-colors"
-                  style={{ color: "#9B7FFF", backgroundColor: "rgba(124,92,252,0.1)" }}
-                >
-                  Прочитать все
-                </button>
-              )}
+              <div className="flex gap-2">
+                {canManage && (
+                  <button
+                    className="flex items-center gap-1.5 gradient-violet text-white text-xs font-semibold px-3 py-2 rounded-xl hover:opacity-90 transition-opacity"
+                    style={{ boxShadow: "0 4px 15px rgba(124,92,252,0.35)" }}
+                  >
+                    <Icon name="Plus" size={13} />
+                    Добавить
+                  </button>
+                )}
+                {unreadCount > 0 && (
+                  <button
+                    onClick={() => setAnnouncements((prev) => prev.map((a) => ({ ...a, read: true })))}
+                    className="text-xs font-medium px-3 py-1.5 rounded-xl transition-colors"
+                    style={{ color: "#9B7FFF", backgroundColor: "rgba(124,92,252,0.1)" }}
+                  >
+                    Прочитать все
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="space-y-3">
@@ -591,6 +649,52 @@ export default function Index({ user, onLogout }: IndexProps) {
           </div>
         )}
       </main>
+
+      {/* Create Event Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-[100] flex items-end justify-center" onClick={() => setShowCreateModal(false)}>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div
+            className="relative w-full max-w-lg bg-app-card border border-app-border rounded-t-4xl p-6 pb-10 animate-slide-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 bg-app-border rounded-full mx-auto mb-5" />
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-bold">Новое мероприятие</h3>
+              <button onClick={() => setShowCreateModal(false)} className="w-8 h-8 rounded-xl bg-app-surface flex items-center justify-center">
+                <Icon name="X" size={16} className="text-app-text-muted" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              {[
+                { label: "Название", placeholder: "Например: Олимпиада по физике", icon: "FileText" },
+                { label: "Дата", placeholder: "01 апреля", icon: "Calendar" },
+                { label: "Время", placeholder: "14:00", icon: "Clock" },
+                { label: "Место", placeholder: "Каб. 201", icon: "MapPin" },
+              ].map(({ label, placeholder, icon }) => (
+                <div key={label}>
+                  <label className="text-xs font-medium text-app-text-muted uppercase tracking-wider mb-1.5 block">{label}</label>
+                  <div className="flex items-center gap-3 bg-app-surface border border-app-border rounded-2xl px-4 py-3">
+                    <Icon name={icon} fallback="Circle" size={15} className="text-app-text-muted flex-shrink-0" />
+                    <input
+                      type="text"
+                      placeholder={placeholder}
+                      className="flex-1 bg-transparent text-sm text-app-text placeholder:text-app-text-dim outline-none"
+                    />
+                  </div>
+                </div>
+              ))}
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="w-full py-3.5 gradient-violet text-white text-sm font-bold rounded-2xl hover:opacity-90 transition-opacity mt-2"
+                style={{ boxShadow: "0 8px 24px rgba(124,92,252,0.4)" }}
+              >
+                Создать мероприятие
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 glass border-t border-app-border">
