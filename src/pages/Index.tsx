@@ -115,11 +115,17 @@ const ANNOUNCEMENTS = [
 
 type Tab = "events" | "schedule" | "announcements";
 
-export default function Index() {
+interface IndexProps {
+  user: { name: string; role: string; initials: string };
+  onLogout: () => void;
+}
+
+export default function Index({ user, onLogout }: IndexProps) {
   const [activeTab, setActiveTab] = useState<Tab>("events");
   const [events, setEvents] = useState(EVENTS);
   const [announcements, setAnnouncements] = useState(ANNOUNCEMENTS);
   const [notifVisible, setNotifVisible] = useState(false);
+  const [profileVisible, setProfileVisible] = useState(false);
   const [bellRing, setBellRing] = useState(false);
   const [registeredEvent, setRegisteredEvent] = useState<number | null>(null);
   const [selectedDay, setSelectedDay] = useState(2);
@@ -201,11 +207,38 @@ export default function Index() {
               )}
             </button>
 
-            <div className="w-9 h-9 rounded-2xl gradient-violet flex items-center justify-center text-sm font-bold text-white">
-              АС
-            </div>
+            <button
+              onClick={() => setProfileVisible((v) => !v)}
+              className="w-9 h-9 rounded-2xl gradient-violet flex items-center justify-center text-sm font-bold text-white hover:opacity-90 transition-opacity"
+            >
+              {user.initials}
+            </button>
           </div>
         </div>
+
+        {/* Profile dropdown */}
+        {profileVisible && (
+          <div className="absolute top-16 right-4 w-64 bg-app-card border border-app-border rounded-3xl shadow-2xl overflow-hidden animate-scale-in z-50">
+            <div className="px-4 py-4 border-b border-app-border">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl gradient-violet flex items-center justify-center text-sm font-bold text-white flex-shrink-0">
+                  {user.initials}
+                </div>
+                <div className="min-w-0">
+                  <div className="font-semibold text-sm truncate">{user.name}</div>
+                  <div className="text-[11px] text-app-text-muted truncate">{user.role}</div>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => { setProfileVisible(false); onLogout(); }}
+              className="w-full px-4 py-3 flex items-center gap-3 hover:bg-app-surface transition-colors text-red-400"
+            >
+              <Icon name="LogOut" size={15} />
+              <span className="text-sm font-medium">Выйти из аккаунта</span>
+            </button>
+          </div>
+        )}
 
         {/* Notification dropdown */}
         {notifVisible && (
